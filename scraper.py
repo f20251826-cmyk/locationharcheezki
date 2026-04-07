@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import argparse
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -34,6 +35,37 @@ def setup_driver():
     driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.implicitly_wait(5)
     return driver
+
+def find_linkedin_url_via_google(driver, name, position, company):
+    """Search Google for the person's LinkedIn profile."""
+    # Build query: Name Position Company site:linkedin.com/in
+    query_parts = [p for p in [name, position, company] if p and str(p).strip() != 'nan']
+    query = " ".join(query_parts) + " site:linkedin.com/in"
+    encoded_query = urllib.parse.quote_plus(query)
+    url = f"https://www.google.com/search?q={encoded_query}"
+    
+    try:
+        driver.get(url)
+        time.sleep(2)  # Wait for results to load
+        
+        # Check for CAPTCHA
+        if "sorry/index" in driver.current_url or "captcha" in driver.page_source.lower():
+            print("\nHit Google CAPTCHA. Unable to search Google.")
+            return None
+            
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        
+        # Look for any link that contains linkedin.com/in/
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            # Sometimes google links are wrapped in /url?q=...
+            match = re.search(r'(https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[^&?\s]+)', href)
+            if match:
+                return match.group(1)
+        return None
+    except Exception as e:
+        print(f"\nError searching Google: {e}")
+        return None
 
 def find_linkedin_url_via_ddg(driver, name, position, company):
     """Search DuckDuckGo for the person's LinkedIn profile."""
@@ -115,11 +147,15 @@ def extract_location(driver, url):
         return "Error"
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python scraper.py <path_to_csv>")
-        sys.exit(1)
-        
-    input_csv = sys.argv[1]
+    parser = argparse.ArgumentParser(description="LinkedIn Location Scraper")
+    parser.add_argument("csv_path", help="Path to the input CSV file")
+    parser.add_argument("--engine", choices=["ddg", "google"], default="ddg", 
+                        help="Search engine to use for fallback search (default: ddg)")
+    args = parser.parse_args()
+    
+    input_csv = args.csv_path
+    engine = args.engine
+    
     if not os.path.exists(input_csv):
         print(f"File not found: {input_csv}")
         sys.exit(1)
@@ -159,8 +195,12 @@ def main():
                     comp = str(row.get(comp_col, "")) if comp_col else ""
                     
                     if name.strip() and name.strip() != 'nan':
-                        print(f"[{index+1}/{total_rows}] Searching for missing URL -> {name} ({pos} at {comp}) ...", end=" ", flush=True)
-                        new_url = find_linkedin_url_via_ddg(driver, name, pos, comp)
+                        print(f"[{index+1}/{total_rows}] Searching ({engine.upper()}) for missing URL -> {name} ({pos} at {comp}) ...", end=" ", flush=True)
+                        if engine == "google":
+                            new_url = find_linkedin_url_via_google(driver, name, pos, comp)
+                        else:
+                            new_url = find_linkedin_url_via_ddg(driver, name, pos, comp)
+                            
                         if new_url:
                             print(f"Found: {new_url}")
                             df.at[index, linkedin_col] = new_url
