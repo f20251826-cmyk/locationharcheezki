@@ -1,5 +1,5 @@
-Name,Email,LinkedIn URL
-Bill Gates,bill@microsoft.com,https://www.linkedin.com/in/williamhgates/
-Satya Nadella,satya@microsoft.com,https://www.linkedin.com/in/satyanadella/
-Missing URL,missing@none.com,
-Invalid URL,invalid@none.com,https://www.linkedin.com/in/this-profile-doesnt-exist-12345/
+Name,Email,LinkedIn URL,Position,Company
+Bill Gates,bill@microsoft.com,https://www.linkedin.com/in/williamhgates/,Co-chair,Bill & Melinda Gates Foundation
+Satya Nadella,satya@microsoft.com,https://www.linkedin.com/in/satyanadella/,CEO,Microsoft
+Tim Cook,tim@apple.com,,CEO,Apple
+Invalid URL,invalid@none.com,https://www.linkedin.com/in/this-profile-doesnt-exist-12345/,Developer,FakeCompany
