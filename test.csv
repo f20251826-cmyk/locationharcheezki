@@ -1,0 +1,5 @@
+Name,Email,LinkedIn URL
+Bill Gates,bill@microsoft.com,https://www.linkedin.com/in/williamhgates/
+Satya Nadella,satya@microsoft.com,https://www.linkedin.com/in/satyanadella/
+Missing URL,missing@none.com,
+Invalid URL,invalid@none.com,https://www.linkedin.com/in/this-profile-doesnt-exist-12345/
