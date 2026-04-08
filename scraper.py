@@ -18,6 +18,8 @@ def find_column_by_keywords(df, keywords):
     """Find a column matching any of the provided keywords."""
     for col in df.columns:
         col_lower = str(col).lower()
+        if 'unnamed' in col_lower:
+            continue
         if any(k in col_lower for k in keywords):
             return col
     return None
@@ -187,13 +189,17 @@ def main():
         for index, row in df.iterrows():
             url = row[linkedin_col] if linkedin_col in df.columns else None
             
+            name = str(row.get(name_col, "")) if name_col else ""
+            pos = str(row.get(pos_col, "")) if pos_col else ""
+            comp = str(row.get(comp_col, "")) if comp_col else ""
+            
+            # Skip entirely empty/junk rows often exported by Excel at the bottom of the CSV
+            if str(url).strip() in ['nan', 'None', ''] and name.strip() in ['nan', 'None', ''] and comp.strip() in ['nan', 'None', '']:
+                continue
+            
             # If URL is missing, attempt to use DDG search
-            if pd.isna(url) or not str(url).strip():
+            if pd.isna(url) or not str(url).strip() or str(url).strip() == 'nan':
                 if name_col:
-                    name = str(row.get(name_col, ""))
-                    pos = str(row.get(pos_col, "")) if pos_col else ""
-                    comp = str(row.get(comp_col, "")) if comp_col else ""
-                    
                     if name.strip() and name.strip() != 'nan':
                         print(f"[{index+1}/{total_rows}] Searching ({engine.upper()}) for missing URL -> {name} ({pos} at {comp}) ...", end=" ", flush=True)
                         if engine == "google":
