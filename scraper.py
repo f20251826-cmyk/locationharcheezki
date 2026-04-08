@@ -39,16 +39,24 @@ def setup_driver():
         
     profile_dir = os.path.expanduser("~/.scraper_chrome_profile").replace('\\', '/')
     
-    # Launch Chrome natively via OS (completely avoids Selenium bots/fingerprints)
+    # Launch Chrome natively via OS directly to LinkedIn (completely avoids Selenium bots/fingerprints)
     subprocess.Popen([
         chrome_exe,
         f"--user-data-dir={profile_dir}",
-        "--remote-debugging-port=9222"
+        "--remote-debugging-port=9222",
+        "https://www.linkedin.com/"
     ])
     
-    time.sleep(3) # Give Chrome a moment to open
+    print("\n" + "="*60)
+    print("ACTION REQUIRED: Chrome has been opened normally.")
+    print("If you are not logged into LinkedIn, please log in manually right now.")
+    print("Because the automated script has not connected yet, LinkedIn will not block you.")
+    print("Once you are fully logged in and can see your LinkedIn feed,")
+    input("Press ENTER here in the terminal to begin scraping: ")
+    print("="*60 + "\n")
+    print("Hooking script to browser and starting...")
     
-    # Hook Selenium into the running instance
+    # Hook Selenium into the running instance only AFTER login is complete
     chrome_options = Options()
     chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
     
@@ -234,27 +242,6 @@ def main():
     
     print("Setting up browser...")
     driver = setup_driver()
-    
-    # Authenticate / check login
-    try:
-        driver.get("https://www.linkedin.com/")
-        print("\n--- LinkedIn Authentication ---")
-        print("Checking your login status...")
-        time.sleep(4)
-        
-        if "feed" not in driver.current_url and "my-items" not in driver.current_url:
-            print("\n" + "="*60)
-            print("ACTION REQUIRED: You are not logged into LinkedIn.")
-            print("Please use the newly opened Chrome window to log in.")
-            print("Once you are fully logged in and can see your feed,")
-            input("Press ENTER here in the terminal to continue the scrape: ")
-            print("="*60 + "\n")
-        else:
-            print("You are already securely logged in!")
-            print("-------------------------------\n")
-            
-    except Exception as e:
-        print(f"Error checking login status: {e}")
     
     try:
         total_rows = len(df)
