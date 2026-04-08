@@ -5,12 +5,10 @@ import random
 import argparse
 import pandas as pd
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 import re
 import urllib.parse
@@ -26,38 +24,17 @@ def find_column_by_keywords(df, keywords):
     return None
 
 def setup_driver():
-    """Set up the Selenium Chrome WebDriver with persistent session."""
-    chrome_options = Options()
+    """Set up the Undetected Chrome WebDriver with persistent session."""
+    options = uc.ChromeOptions()
     
     # We remove headless so the user can see the browser and log in if necessary.
     # We add a user-data-dir so cookies and login sessions persist.
     # We store the profile in the user's home directory to avoid permission/crash issues on Windows Desktop.
     profile_dir = os.path.expanduser("~/.scraper_chrome_profile").replace('\\', '/')
-    chrome_options.add_argument(f"user-data-dir={profile_dir}")
-    chrome_options.add_argument("--remote-debugging-port=9222")
+    options.add_argument(f"--user-data-dir={profile_dir}")
     
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    
-    # Hide automation flags so LinkedIn allows manual login
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option("useAutomationExtension", False)
-    
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    
-    # Execute CDP command to hide webdriver property
-    driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-        'source': '''
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            })
-        '''
-    })
-    
+    # Use undetected-chromedriver to completely bypass captcha loops
+    driver = uc.Chrome(options=options, use_subprocess=True)
     driver.implicitly_wait(5)
     return driver
 
