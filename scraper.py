@@ -31,8 +31,10 @@ def setup_driver():
     
     # We remove headless so the user can see the browser and log in if necessary.
     # We add a user-data-dir so cookies and login sessions persist.
-    profile_dir = os.path.join(os.getcwd(), 'chrome_profile')
+    # We store the profile in the user's home directory to avoid permission/crash issues on Windows Desktop.
+    profile_dir = os.path.expanduser("~/.scraper_chrome_profile").replace('\\', '/')
     chrome_options.add_argument(f"user-data-dir={profile_dir}")
+    chrome_options.add_argument("--remote-debugging-port=9222")
     
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
