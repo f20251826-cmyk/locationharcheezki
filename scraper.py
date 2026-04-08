@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import random
 import argparse
 import pandas as pd
 from selenium import webdriver
@@ -25,9 +26,14 @@ def find_column_by_keywords(df, keywords):
     return None
 
 def setup_driver():
-    """Set up the Selenium Chrome WebDriver."""
+    """Set up the Selenium Chrome WebDriver with persistent session."""
     chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
+    
+    # We remove headless so the user can see the browser and log in if necessary.
+    # We add a user-data-dir so cookies and login sessions persist.
+    profile_dir = os.path.join(os.getcwd(), 'chrome_profile')
+    chrome_options.add_argument(f"user-data-dir={profile_dir}")
+    
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -112,18 +118,39 @@ def extract_location_from_title(title):
     return None
 
 def extract_location(driver, url):
-    """Navigate to the LinkedIn URL and extract the profile's location."""
+    """Navigate to the LinkedIn URL and extract the profile's location (Authenticated)."""
     try:
         driver.get(url)
-        time.sleep(3)
+        # Randomized delay to mimic human behavior and avoid rate limits
+        delay = random.uniform(4.0, 8.0)
+        time.sleep(delay)
         
-        title = driver.title
-        loc_from_title = extract_location_from_title(title)
-        if loc_from_title and loc_from_title not in ["LinkedIn", "Sign in", "Sign Up"]:
-             return loc_from_title
-
         soup = BeautifulSoup(driver.page_source, 'html.parser')
+        
+        # Check if we got logged out or Authwall hit us
+        title = driver.title
+        if title and ('Sign In' in title or 'Sign up' in title or 'authwall' in driver.current_url.lower() or 'login' in driver.current_url.lower()):
+            return "Authwall blocked viewing (Not logged in)"
 
+        # Method 1: Authenticated Profile layout
+        # The location sits under the main details panel, typically with this class
+        auth_location_span = soup.find('span', class_=re.compile(r'text-body-small inline t-black--light break-words'))
+        if auth_location_span:
+            text = auth_location_span.get_text(separator=' ', strip=True)
+            if text: return text
+            
+        # Fallback Method: if the layout shifts slightly, look for a div containing location
+        # A common wrapper is pb2 (padding bottom 2) under the top card
+        top_card = soup.find('div', class_=re.compile(r'pv-text-details__left-panel'))
+        if top_card:
+            spans = top_card.find_all('span')
+            for span in spans:
+                text = span.get_text(separator=' ', strip=True)
+                if text and 'followers' not in text.lower() and 'connections' not in text.lower() and len(text) < 60:
+                    # Very likely the location string
+                    return text
+        
+        # Fallback to older Public Profile selectors just in case
         location_elements = soup.find_all('div', class_=re.compile(r'top-card__subline-item'))
         if location_elements:
             for el in location_elements:
@@ -139,8 +166,10 @@ def extract_location(driver, url):
                 if text and 'followers' not in text.lower() and 'connections' not in text.lower() and len(text) < 60:
                     return text
 
-        if title and ('Sign In' in title or 'Sign up' in title or 'authwall' in driver.current_url.lower()):
-            return "Authwall blocked viewing"
+        # Last resort fallback: check title
+        loc_from_title = extract_location_from_title(title)
+        if loc_from_title and loc_from_title not in ["LinkedIn", "Sign in", "Sign Up"]:
+             return loc_from_title
 
         return "Location Not Found"
         
@@ -192,6 +221,27 @@ def main():
     
     print("Setting up browser...")
     driver = setup_driver()
+    
+    # Authenticate / check login
+    try:
+        driver.get("https://www.linkedin.com/")
+        print("\n--- LinkedIn Authentication ---")
+        print("Checking your login status...")
+        time.sleep(4)
+        
+        if "feed" not in driver.current_url and "my-items" not in driver.current_url:
+            print("\n" + "="*60)
+            print("ACTION REQUIRED: You are not logged into LinkedIn.")
+            print("Please use the newly opened Chrome window to log in.")
+            print("Once you are fully logged in and can see your feed,")
+            input("Press ENTER here in the terminal to continue the scrape: ")
+            print("="*60 + "\n")
+        else:
+            print("You are already securely logged in!")
+            print("-------------------------------\n")
+            
+    except Exception as e:
+        print(f"Error checking login status: {e}")
     
     try:
         total_rows = len(df)
