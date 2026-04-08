@@ -5,11 +5,14 @@ import random
 import argparse
 import pandas as pd
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import undetected_chromedriver as uc
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
+import subprocess
 import re
 import urllib.parse
 
@@ -24,17 +27,33 @@ def find_column_by_keywords(df, keywords):
     return None
 
 def setup_driver():
-    """Set up the Undetected Chrome WebDriver with persistent session."""
-    options = uc.ChromeOptions()
-    
-    # We remove headless so the user can see the browser and log in if necessary.
-    # We add a user-data-dir so cookies and login sessions persist.
-    # We store the profile in the user's home directory to avoid permission/crash issues on Windows Desktop.
+    """Set up the WebDriver by hooking into a natively launched Chrome to bypass all captchas/crashes."""
+    chrome_paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expanduser(r"~\AppData\Local\Google\Chrome\Application\chrome.exe")
+    ]
+    chrome_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
+    if not chrome_exe:
+        raise Exception("Could not find Google Chrome installation. Please make sure Google Chrome is installed.")
+        
     profile_dir = os.path.expanduser("~/.scraper_chrome_profile").replace('\\', '/')
-    options.add_argument(f"--user-data-dir={profile_dir}")
     
-    # Use undetected-chromedriver to completely bypass captcha loops
-    driver = uc.Chrome(options=options, use_subprocess=True)
+    # Launch Chrome natively via OS (completely avoids Selenium bots/fingerprints)
+    subprocess.Popen([
+        chrome_exe,
+        f"--user-data-dir={profile_dir}",
+        "--remote-debugging-port=9222"
+    ])
+    
+    time.sleep(3) # Give Chrome a moment to open
+    
+    # Hook Selenium into the running instance
+    chrome_options = Options()
+    chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+    
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.implicitly_wait(5)
     return driver
 
