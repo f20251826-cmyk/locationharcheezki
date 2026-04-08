@@ -172,11 +172,20 @@ def main():
         df[linkedin_col] = ''
         
     name_col = find_column_by_keywords(df, ['name'])
-    pos_col = find_column_by_keywords(df, ['position', 'title', 'role'])
-    comp_col = find_column_by_keywords(df, ['company', 'organization'])
+    pos_col = find_column_by_keywords(df, ['position', 'title', 'role', 'designation'])
+    comp_col = find_column_by_keywords(df, ['company', 'organization', 'organisation'])
     
     print(f"Detected Columns -> LinkedIn: '{linkedin_col}', Name: '{name_col}', Position: '{pos_col}', Company: '{comp_col}'")
     
+    # Clean up empty rows exported by Excel to avoid scraping purely blank rows
+    essential_cols = [c for c in [linkedin_col, name_col, comp_col] if c is not None]
+    if essential_cols:
+        initial_count = len(df)
+        df.dropna(subset=essential_cols, how='all', inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        if len(df) < initial_count:
+            print(f"Removed {initial_count - len(df)} completely blank rows.")
+
     # Initialize the new column
     if 'Location' not in df.columns:
          df['Location'] = ""
